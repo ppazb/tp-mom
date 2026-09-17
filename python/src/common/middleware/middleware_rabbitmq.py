@@ -4,13 +4,15 @@ from .middleware import MessageMiddlewareQueue,MessageMiddlewareExchange,Message
 
 #Funcion auxiliar para evitar repetir codigo en las exception en todas las funciones 
 def handle_error(funcion, e):
+    #Caso error de conexion
     if isinstance(e, pika.exceptions.AMQPConnectionError):
         raise MessageMiddlewareDisconnectedError(f"Error {funcion}: {e}")
-    
+
+    #Demas casos muestro el error
     raise MessageMiddlewareMessageError(f"Error {funcion}: {e}")
 
-
 class MessageMiddlewareQueueRabbitMQ(MessageMiddlewareQueue):
+    #constructor de clase
     def __init__(self, host, queue_name):
         self.queue_name = queue_name
         try:
@@ -21,13 +23,16 @@ class MessageMiddlewareQueueRabbitMQ(MessageMiddlewareQueue):
         except Exception as e:
             handle_error("Init", e)
 
+    #publica mensaje
     def send(self, message):
         try:
+            #Uso exchange default, la cola es a quien se lo quiero enviar y le mando mensaje
             self.channel.basic_publish(exchange = '', routing_key = self.queue_name, body = message)
 
         except Exception as e:
             handle_error("send", e)  
 
+    #Comienza a escuchar a la cola e invoca a on_message_callback 
     def start_consuming(self, on_message_callback):
         def callback(ch, method, properties, body):
             def ack():
@@ -49,14 +54,17 @@ class MessageMiddlewareQueueRabbitMQ(MessageMiddlewareQueue):
         except Exception as e:
             handle_error("Start_consumiung", e)  
 
+    #Si se estaba consumiendo desde la cola, se detiene la escucha.
+    #Si no se estaba consumiendo de la cola, no tiene efecto
     def stop_consuming(self):
         try:
-            if self.channel.is_open:
+            if self.channel.is_open: 
                 self.channel.stop_consuming()
 
         except Exception as e:
             handle_error("Stop_consuming", e)  
 
+    # Se desconecta de la cola 
     def close(self):
         try:
             if self.channel.is_open:
@@ -69,6 +77,7 @@ class MessageMiddlewareQueueRabbitMQ(MessageMiddlewareQueue):
 
 
 class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
+    #constructor de clase
     def __init__(self, host, exchange_name, routing_keys):
         self.routing_keys = routing_keys
         self.exchange_name = exchange_name
@@ -81,15 +90,19 @@ class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
         except Exception as e:
             handle_error("Init", e)  
 
+    #Envía un mensaje al tópico con el que se inicializó el exchange.
     def send(self, message):
         routing_keys = self.routing_keys
         try:
             for key in routing_keys:
-                self.channel.basic_publish(exchange = self.exchange_name,routing_key= key, body = message)
+                #asumo que puede haber varios keys 
+                self.channel.basic_publish(exchange = self.exchange_name, routing_key = key, body = message)
 
         except Exception as e:
             handle_error("send", e)  
 
+    #Si se estaba consumiendo desde el exchange, se detiene la escucha. Si
+	#no se estaba consumiendo del exchange, no tiene efecto
     def start_consuming(self, on_message_callback):
         def callback(ch, method, properties, body):
             def ack():
@@ -117,6 +130,7 @@ class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
         except Exception as e:
             handle_error("start_consuming", e)  
 
+    #Si se estaba consumiendo desde la cola/exchange, se detiene la escucha.
     def stop_consuming(self):
         try:
             if self.channel.is_open:
@@ -125,6 +139,7 @@ class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
         except Exception as e:
             handle_error("stop_consuming", e)  
 
+    #Se desconecta del exchange 
     def close(self):
         try:
             if self.channel.is_open:
