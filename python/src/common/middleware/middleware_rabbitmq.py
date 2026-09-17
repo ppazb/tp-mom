@@ -101,8 +101,7 @@ class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
         except Exception as e:
             handle_error("send", e)  
 
-    #Si se estaba consumiendo desde el exchange, se detiene la escucha. Si
-	#no se estaba consumiendo del exchange, no tiene efecto
+    # Comienza a escuchar al exchange e invoca a on_message_callback 
     def start_consuming(self, on_message_callback):
         def callback(ch, method, properties, body):
             def ack():
@@ -130,7 +129,8 @@ class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
         except Exception as e:
             handle_error("start_consuming", e)  
 
-    #Si se estaba consumiendo desde la cola/exchange, se detiene la escucha.
+    #Si se estaba consumiendo desde el exchange, se detiene la escucha. Si
+	#no se estaba consumiendo del exchange, no tiene efecto
     def stop_consuming(self):
         try:
             if self.channel.is_open:
